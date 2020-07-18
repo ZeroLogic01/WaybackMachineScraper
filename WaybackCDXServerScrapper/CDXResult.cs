@@ -15,7 +15,7 @@ namespace WaybackCDXServerScrapper
         //public string Digest { get; set; }
         //public int Length { get; set; }
 
-        public int PageNumber { set; get; }
+        public long PageNumber { set; get; }
         public List<string> URLS { get; set; }
 
     }
