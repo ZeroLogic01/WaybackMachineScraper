@@ -37,13 +37,23 @@ namespace WaybackCDXServerScrapper
         public string BaseRequestUrl { get; set; } = @"http://web.archive.org/cdx/search/cdx?url=";
         public string ArchiveAccessUrl { get; set; } = @"https://web.archive.org/web/";
 
-        public List<CDXResult> CDXDataList { get; set; }
+        public List<CDXResults> CDXDataList { get; set; }
         public Queue<long> FailedFetchPages { get; set; }
 
         #endregion
 
         public int ConcurrentTasksCount { get; set; } = 1;
         public List<Task> ConcurrentTasks { get; set; } = new List<Task>();
+        public string MatchType { get; }
+
+        #region Constructor
+
+        public CdxScrapper(string matchType)
+        {
+            MatchType = matchType;
+        }
+
+        #endregion
 
         #region Methods
 
@@ -53,7 +63,7 @@ namespace WaybackCDXServerScrapper
             Console.WriteLine($"Scanning {url}");
             Console.WriteLine($"Concurrent tasks count: {ConcurrentTasksCount}");
             Console.WriteLine($"Output file: {Path.GetFileName(filePath)}");
-            var numberOfPages = await GetResponse<long>(BaseRequestUrl + url + "&matchType=domain&showNumPages=true", HttpMethod.Get);
+            var numberOfPages = await GetResponse<long>(BaseRequestUrl + url + $"&matchType={MatchType}&showNumPages=true", HttpMethod.Get);
             Console.WriteLine($"Total number of pages found: {numberOfPages}");
             Console.WriteLine("************************************");
 
@@ -73,7 +83,7 @@ namespace WaybackCDXServerScrapper
 
         public async Task ScrapeAllPages(Queue<long> pages, string url, string filePath)
         {
-            CDXDataList = new List<CDXResult>();
+            CDXDataList = new List<CDXResults>();
             FailedFetchPages = new Queue<long>();
 
             bool isSomePagesRemaining = pages.Count > 0;
@@ -141,17 +151,17 @@ namespace WaybackCDXServerScrapper
             }
         }
 
-        public async Task<CDXResult> ScrapeAPage(string url, long pageNumber)
+        public async Task<CDXResults> ScrapeAPage(string url, long pageNumber)
         {
-            CDXResult cdxData = new CDXResult
+            CDXResults cdxData = new CDXResults
             {
                 PageNumber = pageNumber,
-                URLS = new List<string>()
+                URLS = new List<CDXResult>()
             };
 
             Console.WriteLine($"Fetching URLs from page {pageNumber + 1}...");
 
-            string finalUrl = BaseRequestUrl + url + $"&matchType=domain&fl=timestamp,original&output=json&page={pageNumber}";
+            string finalUrl = BaseRequestUrl + url + $"&matchType={MatchType}&fl=original,timestamp,mimetype&output=json&page={pageNumber}&limit=2";
 
             var items = await GetResponse<JArray>(finalUrl, HttpMethod.Get);
 
@@ -161,7 +171,13 @@ namespace WaybackCDXServerScrapper
             }
             foreach (var item in items?.Children().Skip(1).ToList())
             {
-                cdxData.URLS.Add($"{ArchiveAccessUrl}{item[0]}/{item[1]}");
+                var result = new CDXResult()
+                {
+                    URL = $"{ArchiveAccessUrl}{item[1]}/{item[0]}",
+                    Mimetype = item[2].ToString(),
+                    Timestamp = DateTime.ParseExact(item[1].ToString(), "yyyyMMddHHmmss", null)
+                };
+                cdxData.URLS.Add(result);
             }
 
             Console.WriteLine($"Fetching URLS from page {pageNumber + 1} completed.");

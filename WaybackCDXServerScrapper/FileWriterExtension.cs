@@ -11,7 +11,7 @@ namespace WaybackCDXServerScrapper
     public static class FileWriterExtension
     {
         static readonly ReaderWriterLock locker = new ReaderWriterLock();
-        public static void WriteToFile(this List<string> records, string filePath)
+        public static void WriteToFile<T>(this List<T> records, string filePath)
         {
             try
             {
@@ -21,12 +21,13 @@ namespace WaybackCDXServerScrapper
                     using (var writer = new StreamWriter(fileStream, Encoding.UTF8))
                     using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
                     {
-                        foreach (var record in records)
-                        {
-                            csv.WriteField(record);
-                            csv.NextRecord();
-                        }
-                        writer.Flush();
+                        //foreach (var record in records)
+                        //{
+                        //    csv.WriteField(record);
+                        //    csv.NextRecord();
+                        //}
+                        //writer.Flush();
+                        csv.WriteRecords(records);
                     }
                 }
             }

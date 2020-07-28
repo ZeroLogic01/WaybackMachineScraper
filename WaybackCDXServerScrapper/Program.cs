@@ -8,45 +8,72 @@ namespace WaybackCDXServerScrapper
 {
     class Program
     {
+
+
         static async Task Main(string[] args)
         {
-#if DEBUG
-            args = new string[] { @"katespade.com/handbags/" };
-#endif
-            if (args.Length != 1 && args.Length != 2)
-            {
-                Console.WriteLine("WaybackCDXServerScrapper \"domain-name\" \"{Optional}total-number-of-concurrent-downloads{default is 1}\" Expected.");
-                return;
-            }
+            string dateText = "20151015";
+            DateTime dateTime = DateTime.ParseExact(dateText, "yyyyMMdd", null);
 
-            string domainName = args[0];
+            Console.WriteLine(dateTime.ToLocalTime());
 
-            CdxScrapper scrapper = new CdxScrapper();
-            try
-            {
-                int.TryParse(args[1], out int concurrentTasksCount);
-                scrapper.ConcurrentTasksCount = concurrentTasksCount > 0 ? concurrentTasksCount : 1;
-            }
-            catch { }
-
-            string outputFile = string.Empty;
-            try
-            {
-                outputFile = GetOutputFileName(domainName);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ExceptionHelper.ExtractExceptionMessage(ex));
-                return;
-            }
-
-            var numberOfPages = await scrapper.GetTotalPagesCount(domainName, outputFile);
-            if (numberOfPages > 0)
-            {
-                await scrapper.ScrapeAllPages(numberOfPages, domainName, outputFile);
-            }
-
+            Console.ReadLine();
         }
+
+        //        static async Task Main(string[] args)
+        //        {
+        //#if DEBUG
+        //            args = new string[] { @"amazon.com/Amazon-Prime-Air/b?ie=UTF8&node=8037720011", "prefix" };
+        //#endif
+        //            if (args.Length != 2 && args.Length != 3)
+        //            {
+        //                Console.WriteLine("WaybackCDXServerScrapper \"domain-name\" \"matchType\" \"{Optional}total-number-of-concurrent-downloads{default is 1}\" Expected.");
+
+        //                Console.WriteLine("*************matchType**************");
+        //                Console.WriteLine("if given the URL: archive.org/about/ and:\n");
+        //                Console.WriteLine("matchType=exact will return results matching exactly archive.org/about/\n");
+        //                Console.WriteLine("matchType=prefix will return results for all results under the path archive.org/about/\n");
+        //                Console.WriteLine("matchType=host will return results from host archive.org\n");
+        //                Console.WriteLine("matchType=domain will return results from host archive.org and all subhosts *.archive.org");
+        //                Console.WriteLine("************************************");
+        //                return;
+        //            }
+
+        //            string domainName = args[0];
+        //            string matchType = args[1];
+
+        //            if (!matchType.Equals("exact") && !matchType.Equals("prefix") && !matchType.Equals("host") && !matchType.Equals("domain"))
+        //            {
+        //                Console.WriteLine("Only \"exact\", \"prefix\", \"host\" & \"domain\" allowed as matchType");
+        //                return;
+        //            }
+
+        //            CdxScrapper scrapper = new CdxScrapper(matchType);
+        //            try
+        //            {
+        //                int.TryParse(args[2], out int concurrentTasksCount);
+        //                scrapper.ConcurrentTasksCount = concurrentTasksCount > 0 ? concurrentTasksCount : 1;
+        //            }
+        //            catch { }
+
+        //            string outputFile = string.Empty;
+        //            try
+        //            {
+        //                outputFile = GetOutputFileName(domainName);
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                Console.WriteLine(ExceptionHelper.ExtractExceptionMessage(ex));
+        //                return;
+        //            }
+
+        //            var numberOfPages = await scrapper.GetTotalPagesCount(domainName, outputFile);
+        //            if (numberOfPages > 0)
+        //            {
+        //                await scrapper.ScrapeAllPages(numberOfPages, domainName, outputFile);
+        //            }
+
+        //        }
 
         /// <returns>A CSV output file path</returns>
         public static string GetOutputFileName(string domainName)
