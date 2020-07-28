@@ -44,13 +44,17 @@ namespace WaybackCDXServerScrapper
 
         public int ConcurrentTasksCount { get; set; } = 1;
         public List<Task> ConcurrentTasks { get; set; } = new List<Task>();
-        public string MatchType { get; }
+        public MatchTypeFilter MatchType { get; }
+        public string From { get; }
+        public string To { get; }
 
         #region Constructor
 
-        public CdxScrapper(string matchType)
+        public CdxScrapper(MatchTypeFilter matchType, string from, string to)
         {
             MatchType = matchType;
+            From = from;
+            To = to;
         }
 
         #endregion
@@ -59,11 +63,21 @@ namespace WaybackCDXServerScrapper
 
         public async Task<long> GetTotalPagesCount(string url, string filePath)
         {
+            string requestUrl = BaseRequestUrl + url + $"&matchType={MatchType}&showNumPages=true";
             Console.WriteLine("************************************");
             Console.WriteLine($"Scanning {url}");
+           
+            if (!string.IsNullOrWhiteSpace(From) && !string.IsNullOrWhiteSpace(To))
+            {
+                requestUrl = $"{requestUrl}&from={From}&to={To}";
+                Console.WriteLine($"From {From} to {To}");
+            }
+
             Console.WriteLine($"Concurrent tasks count: {ConcurrentTasksCount}");
             Console.WriteLine($"Output file: {Path.GetFileName(filePath)}");
-            var numberOfPages = await GetResponse<long>(BaseRequestUrl + url + $"&matchType={MatchType}&showNumPages=true", HttpMethod.Get);
+
+            var numberOfPages = await GetResponse<long>(requestUrl, HttpMethod.Get);
+
             Console.WriteLine($"Total number of pages found: {numberOfPages}");
             Console.WriteLine("************************************");
 
@@ -161,7 +175,13 @@ namespace WaybackCDXServerScrapper
 
             Console.WriteLine($"Fetching URLs from page {pageNumber + 1}...");
 
-            string finalUrl = BaseRequestUrl + url + $"&matchType={MatchType}&fl=original,timestamp,mimetype&output=json&page={pageNumber}&limit=2";
+            string finalUrl = BaseRequestUrl + url + $"&matchType={MatchType}&fl=original,timestamp,mimetype&output=json&page={pageNumber}";
+
+
+            if (!string.IsNullOrWhiteSpace(From) && !string.IsNullOrWhiteSpace(To))
+            {
+                finalUrl = $"{finalUrl}&from={From}&to={To}";
+            }
 
             var items = await GetResponse<JArray>(finalUrl, HttpMethod.Get);
 

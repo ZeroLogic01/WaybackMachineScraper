@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CommandLine;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,70 +11,105 @@ namespace WaybackCDXServerScrapper
     {
 
 
-        static async Task Main(string[] args)
+        //static async Task Main(string[] args)
+        //{
+        //    string dateText = "20151015";
+        //    DateTime dateTime = DateTime.ParseExact(dateText, "yyyyMMdd", null);
+
+        //    Console.WriteLine(dateTime.ToLocalTime());
+
+        //    Console.ReadLine();
+        //}
+
+        class Options
         {
-            string dateText = "20151015";
-            DateTime dateTime = DateTime.ParseExact(dateText, "yyyyMMdd", null);
+            [Option('d', "domain-name", HelpText = "A web URL. It can be a domain/sub-domain or a specific URL.", Required = true)]
+            public string DomainName { get; set; }
 
-            Console.WriteLine(dateTime.ToLocalTime());
+            [Option('m', "match-type", HelpText = "Match type filter." +
+               "See more https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#url-match-scope", /*Default = MatchType.exact,*/ Required = false)]
+            public MatchTypeFilter MatchType { get; set; }
 
-            Console.ReadLine();
+            [Option('c', "concurrent-downloads", HelpText = "Total number of concurrent downloads.", Default = 1)]
+            public int ConcurrentDownloadsCount { get; set; }
+
+            [Option('f', "from", HelpText = "The \"from\" range is inclusive and is specified in the same 1 to 14 digit format used for wayback captures: yyyyMMddhhmmss", Required = false)]
+            public string From { get; set; }
+
+            [Option('t', "to", HelpText = "The \"To\" range is inclusive and is specified in the same 1 to 14 digit format used for wayback captures: yyyyMMddhhmmss", Required = false)]
+            public string To { get; set; }
         }
 
-        //        static async Task Main(string[] args)
-        //        {
-        //#if DEBUG
-        //            args = new string[] { @"amazon.com/Amazon-Prime-Air/b?ie=UTF8&node=8037720011", "prefix" };
-        //#endif
-        //            if (args.Length != 2 && args.Length != 3)
-        //            {
-        //                Console.WriteLine("WaybackCDXServerScrapper \"domain-name\" \"matchType\" \"{Optional}total-number-of-concurrent-downloads{default is 1}\" Expected.");
 
-        //                Console.WriteLine("*************matchType**************");
-        //                Console.WriteLine("if given the URL: archive.org/about/ and:\n");
-        //                Console.WriteLine("matchType=exact will return results matching exactly archive.org/about/\n");
-        //                Console.WriteLine("matchType=prefix will return results for all results under the path archive.org/about/\n");
-        //                Console.WriteLine("matchType=host will return results from host archive.org\n");
-        //                Console.WriteLine("matchType=domain will return results from host archive.org and all subhosts *.archive.org");
-        //                Console.WriteLine("************************************");
-        //                return;
-        //            }
+        static async Task Main(string[] args)
+        {
+#if DEBUG
+            args = new string[] { "-d", @"amazon.com/Amazon-Prime-Air/b?ie=UTF8&node=8037720011", "-m", "prefix", "-f", "2013", "-t", "2014" };
+#endif
 
-        //            string domainName = args[0];
-        //            string matchType = args[1];
+            var parsedResult = await Parser.Default.ParseArguments<Options>(args)
+                      .WithParsedAsync(async o =>
+                      {
+                          await StartScraping(o.DomainName, o.MatchType, o.From, o.To, o.ConcurrentDownloadsCount);
+                      });
 
-        //            if (!matchType.Equals("exact") && !matchType.Equals("prefix") && !matchType.Equals("host") && !matchType.Equals("domain"))
-        //            {
-        //                Console.WriteLine("Only \"exact\", \"prefix\", \"host\" & \"domain\" allowed as matchType");
-        //                return;
-        //            }
+            parsedResult.WithNotParsed(ParsingFailed);
 
-        //            CdxScrapper scrapper = new CdxScrapper(matchType);
-        //            try
-        //            {
-        //                int.TryParse(args[2], out int concurrentTasksCount);
-        //                scrapper.ConcurrentTasksCount = concurrentTasksCount > 0 ? concurrentTasksCount : 1;
-        //            }
-        //            catch { }
+            return;
 
-        //            string outputFile = string.Empty;
-        //            try
-        //            {
-        //                outputFile = GetOutputFileName(domainName);
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                Console.WriteLine(ExceptionHelper.ExtractExceptionMessage(ex));
-        //                return;
-        //            }
+            if (args.Length != 4 && args.Length != 5)
+            {
+                Console.WriteLine("WaybackCDXServerScrapper \"domain-name\" \"matchType\" \"{Optional}total-number-of-concurrent-downloads{default is 1}\" Expected.");
 
-        //            var numberOfPages = await scrapper.GetTotalPagesCount(domainName, outputFile);
-        //            if (numberOfPages > 0)
-        //            {
-        //                await scrapper.ScrapeAllPages(numberOfPages, domainName, outputFile);
-        //            }
 
-        //        }
+                return;
+            }
+
+            string domainName = args[0];
+            string matchType = args[1];
+
+            if (!matchType.Equals("exact") && !matchType.Equals("prefix") && !matchType.Equals("host") && !matchType.Equals("domain"))
+            {
+                Console.WriteLine("Only \"exact\", \"prefix\", \"host\" & \"domain\" allowed as matchType");
+                return;
+            }
+        }
+
+        private static void ParsingFailed(IEnumerable<Error> errors)
+        {
+            Console.WriteLine("*************matchType**************");
+            Console.WriteLine("if given the URL: archive.org/about/ and:\n");
+            Console.WriteLine("matchType=exact will return results matching exactly archive.org/about/\n");
+            Console.WriteLine("matchType=prefix will return results for all results under the path archive.org/about/\n");
+            Console.WriteLine("matchType=host will return results from host archive.org\n");
+            Console.WriteLine("matchType=domain will return results from host archive.org and all subhosts *.archive.org");
+            Console.WriteLine("************************************");
+        }
+
+        public static async Task StartScraping(string domainName, MatchTypeFilter matchType, string from, string to, int concurrentTasksCount)
+        {
+            CdxScrapper scrapper = new CdxScrapper(matchType, from, to)
+            {
+                ConcurrentTasksCount = concurrentTasksCount
+            };
+
+            string outputFile = string.Empty;
+            try
+            {
+                outputFile = GetOutputFileName(domainName);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ExceptionHelper.ExtractExceptionMessage(ex));
+                return;
+            }
+
+            var numberOfPages = await scrapper.GetTotalPagesCount(domainName, outputFile);
+            if (numberOfPages > 0)
+            {
+                await scrapper.ScrapeAllPages(numberOfPages, domainName, outputFile);
+            }
+        }
 
         /// <returns>A CSV output file path</returns>
         public static string GetOutputFileName(string domainName)
