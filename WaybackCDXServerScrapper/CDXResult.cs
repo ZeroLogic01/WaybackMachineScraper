@@ -10,8 +10,7 @@ namespace WaybackCDXServerScrapper
         //public int Length { get; set; }
 
         public string URL { get; set; }
-        
-        public DateTime Timestamp { get; set; }
         public string Mimetype { get; set; }
+        public DateTime Date { get; set; }
     }
 }

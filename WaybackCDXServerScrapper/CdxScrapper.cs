@@ -40,13 +40,22 @@ namespace WaybackCDXServerScrapper
         public List<CDXResults> CDXDataList { get; set; }
         public Queue<long> FailedFetchPages { get; set; }
 
-        #endregion
+        public string OutputFilePath { get; set; }
+
+        /// <summary>
+        /// Default size is 499 mega bytes.
+        /// </summary>
+        public uint OutputFileSizeLimit { get; set; } = 499 * 1024 * 1024;
+
+        public static int FileNamePartNumber { get; set; } = 1;
 
         public int ConcurrentTasksCount { get; set; } = 1;
         public List<Task> ConcurrentTasks { get; set; } = new List<Task>();
         public MatchTypeFilter MatchType { get; }
         public string From { get; }
         public string To { get; }
+
+        #endregion
 
         #region Constructor
 
@@ -61,20 +70,18 @@ namespace WaybackCDXServerScrapper
 
         #region Methods
 
-        public async Task<long> GetTotalPagesCount(string url, string filePath)
+        public async Task<long> GetTotalPagesCount(string url)
         {
             string requestUrl = BaseRequestUrl + url + $"&matchType={MatchType}&showNumPages=true";
             Console.WriteLine("************************************");
             Console.WriteLine($"Scanning {url}");
-           
             if (!string.IsNullOrWhiteSpace(From) && !string.IsNullOrWhiteSpace(To))
             {
                 requestUrl = $"{requestUrl}&from={From}&to={To}";
                 Console.WriteLine($"From {From} to {To}");
             }
-
             Console.WriteLine($"Concurrent tasks count: {ConcurrentTasksCount}");
-            Console.WriteLine($"Output file: {Path.GetFileName(filePath)}");
+            Console.WriteLine($"Output file: {Path.GetFileName(OutputFilePath)}");
 
             var numberOfPages = await GetResponse<long>(requestUrl, HttpMethod.Get);
 
@@ -85,17 +92,17 @@ namespace WaybackCDXServerScrapper
         }
 
 
-        public async Task ScrapeAllPages(long totalNumberOfPages, string domainName, string outputFilePath)
+        public async Task ScrapeAllPages(long totalNumberOfPages, string domainName)
         {
             Queue<long> pages = new Queue<long>();
             for (long i = 0; i < totalNumberOfPages; i++)
             {
                 pages.Enqueue(i);
             }
-            await ScrapeAllPages(pages, domainName, outputFilePath);
+            await ScrapeAllPages(pages, domainName);
         }
 
-        public async Task ScrapeAllPages(Queue<long> pages, string url, string filePath)
+        public async Task ScrapeAllPages(Queue<long> pages, string url)
         {
             CDXDataList = new List<CDXResults>();
             FailedFetchPages = new Queue<long>();
@@ -112,7 +119,7 @@ namespace WaybackCDXServerScrapper
                         if (pages.Any())
                         {
                             long page = pages.Dequeue();
-                            ConcurrentTasks.Add(ScrapeAPageAndSave(url, page, filePath));
+                            ConcurrentTasks.Add(ScrapeAPageAndSave(url, page));
                         }
                         else
                         {
@@ -138,18 +145,22 @@ namespace WaybackCDXServerScrapper
                 Console.WriteLine("Re-fetching failed pages");
                 Console.WriteLine($"Total number of pages failed: {FailedFetchPages.Count}");
                 Console.WriteLine("************************************");
-                await ScrapeAllPages(FailedFetchPages, url, filePath);
+                await ScrapeAllPages(FailedFetchPages, url);
             }
         }
-        public async Task ScrapeAPageAndSave(string url, long pageNumber, string filePath)
+        public async Task ScrapeAPageAndSave(string url, long pageNumber)
         {
             try
             {
                 var data = await ScrapeAPage(url, pageNumber);
                 if (data != null && data.URLS.Count > 0)
                 {
-                    Console.WriteLine($"Saving page {pageNumber + 1} URLs");
-                    FileWriterExtension.WriteToFile(data.URLS, filePath);
+                    OutputFilePath = GetNewFilePathIfCurrentFileSizeExceedsLimit(OutputFilePath);
+
+                    Console.WriteLine($"Saving page {pageNumber + 1} URLs to \"{Path.GetFileName(OutputFilePath)}\"");
+
+                    FileWriterExtension.WriteToFile(data.URLS, OutputFilePath);
+
                     Console.WriteLine($"Saving page {pageNumber + 1} URLs completed");
                 }
                 else
@@ -163,6 +174,37 @@ namespace WaybackCDXServerScrapper
                 FailedFetchPages.Enqueue(pageNumber);
                 await Task.Delay(TimeSpan.FromSeconds(10));
             }
+        }
+
+        private string GetNewFilePathIfCurrentFileSizeExceedsLimit(string filePath)
+        {
+            FileInfo fileInfo = new FileInfo(filePath);
+            if (fileInfo.Exists)
+            {
+                if (fileInfo.Length > OutputFileSizeLimit)
+                {
+                    string directoryPath = Path.GetDirectoryName(filePath);
+                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
+
+                    if (FileNamePartNumber == 1)
+                    {/*If it's the first file & file size exceeds limit, rename it*/
+                        string newName = $"{fileNameWithoutExtension.Trim()} (part {FileNamePartNumber}).csv";
+                        try
+                        {
+                            File.Move(filePath, Path.Combine(directoryPath, newName));
+                            Console.WriteLine($"{fileNameWithoutExtension} renamed to {newName}");
+                        }
+                        catch (Exception) { }
+                    }
+
+                    fileNameWithoutExtension = fileNameWithoutExtension.Replace($"(part {FileNamePartNumber})", string.Empty, StringComparison.OrdinalIgnoreCase);
+
+                    fileNameWithoutExtension = $"{fileNameWithoutExtension.Trim()} (part {++FileNamePartNumber}).csv";
+                    filePath = Path.Combine(directoryPath, fileNameWithoutExtension);
+                }
+            }
+
+            return filePath;
         }
 
         public async Task<CDXResults> ScrapeAPage(string url, long pageNumber)
@@ -195,7 +237,7 @@ namespace WaybackCDXServerScrapper
                 {
                     URL = $"{ArchiveAccessUrl}{item[1]}/{item[0]}",
                     Mimetype = item[2].ToString(),
-                    Timestamp = DateTime.ParseExact(item[1].ToString(), "yyyyMMddHHmmss", null)
+                    Date = DateTime.ParseExact(item[1].ToString(), "yyyyMMddHHmmss", null)
                 };
                 cdxData.URLS.Add(result);
             }

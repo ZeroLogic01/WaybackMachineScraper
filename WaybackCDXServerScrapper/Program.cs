@@ -23,11 +23,11 @@ namespace WaybackCDXServerScrapper
 
         class Options
         {
-            [Option('d', "domain-name", HelpText = "A web URL. It can be a domain/sub-domain or a specific URL.", Required = true)]
+            [Option('u', "domain-name", HelpText = "A web URL. It can be a domain/sub-domain or a specific URL.", Required = true)]
             public string DomainName { get; set; }
 
-            [Option('m', "match-type", HelpText = "Match type filter." +
-               "See more https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#url-match-scope", /*Default = MatchType.exact,*/ Required = false)]
+            [Option('m', "match-type", HelpText = "Match type filter. " +
+               "See more https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#url-match-scope", Default = MatchTypeFilter.domain, Required = false)]
             public MatchTypeFilter MatchType { get; set; }
 
             [Option('c', "concurrent-downloads", HelpText = "Total number of concurrent downloads.", Default = 1)]
@@ -44,7 +44,7 @@ namespace WaybackCDXServerScrapper
         static async Task Main(string[] args)
         {
 #if DEBUG
-            args = new string[] { "-d", @"amazon.com/Amazon-Prime-Air/b?ie=UTF8&node=8037720011", "-m", "prefix", "-f", "2013", "-t", "2014" };
+            args = new string[] { "-u", @"amazon.com/Amazon-Prime-Air/b?ie=UTF8&node=8037720011", "-m", "host", "-f", "2013", "-t", "2020" };
 #endif
 
             var parsedResult = await Parser.Default.ParseArguments<Options>(args)
@@ -56,34 +56,18 @@ namespace WaybackCDXServerScrapper
             parsedResult.WithNotParsed(ParsingFailed);
 
             return;
-
-            if (args.Length != 4 && args.Length != 5)
-            {
-                Console.WriteLine("WaybackCDXServerScrapper \"domain-name\" \"matchType\" \"{Optional}total-number-of-concurrent-downloads{default is 1}\" Expected.");
-
-
-                return;
-            }
-
-            string domainName = args[0];
-            string matchType = args[1];
-
-            if (!matchType.Equals("exact") && !matchType.Equals("prefix") && !matchType.Equals("host") && !matchType.Equals("domain"))
-            {
-                Console.WriteLine("Only \"exact\", \"prefix\", \"host\" & \"domain\" allowed as matchType");
-                return;
-            }
         }
 
         private static void ParsingFailed(IEnumerable<Error> errors)
         {
-            Console.WriteLine("*************matchType**************");
-            Console.WriteLine("if given the URL: archive.org/about/ and:\n");
-            Console.WriteLine("matchType=exact will return results matching exactly archive.org/about/\n");
-            Console.WriteLine("matchType=prefix will return results for all results under the path archive.org/about/\n");
-            Console.WriteLine("matchType=host will return results from host archive.org\n");
-            Console.WriteLine("matchType=domain will return results from host archive.org and all subhosts *.archive.org");
-            Console.WriteLine("************************************");
+            //Console.WriteLine("*************matchType**************");
+            Console.WriteLine("MATCH TYPES:");
+            Console.WriteLine(" if given the URL: archive.org/about/ and:\n");
+            Console.WriteLine("  matchType=exact will return results matching exactly archive.org/about/\n");
+            Console.WriteLine("  matchType=prefix will return results for all results under the path archive.org/about/\n");
+            Console.WriteLine("  matchType=host will return results from host archive.org\n");
+            Console.WriteLine("  matchType=domain will return results from host archive.org and all subhosts *.archive.org");
+            //Console.WriteLine("************************************");
         }
 
         public static async Task StartScraping(string domainName, MatchTypeFilter matchType, string from, string to, int concurrentTasksCount)
@@ -93,10 +77,9 @@ namespace WaybackCDXServerScrapper
                 ConcurrentTasksCount = concurrentTasksCount
             };
 
-            string outputFile = string.Empty;
             try
             {
-                outputFile = GetOutputFileName(domainName);
+                scrapper.OutputFilePath = GetOutputFileName(domainName);
             }
             catch (Exception ex)
             {
@@ -104,10 +87,10 @@ namespace WaybackCDXServerScrapper
                 return;
             }
 
-            var numberOfPages = await scrapper.GetTotalPagesCount(domainName, outputFile);
+            var numberOfPages = await scrapper.GetTotalPagesCount(domainName);
             if (numberOfPages > 0)
             {
-                await scrapper.ScrapeAllPages(numberOfPages, domainName, outputFile);
+                await scrapper.ScrapeAllPages(numberOfPages, domainName);
             }
         }
 
