@@ -23,8 +23,8 @@ namespace WaybackCDXServerScrapper
 
         class Options
         {
-            [Option('u', "domain-name", HelpText = "A web URL. It can be a domain/sub-domain or a specific URL.", Required = true)]
-            public string DomainName { get; set; }
+            [Option('u', "url", HelpText = "A web URL. It can be a domain/sub-domain or a specific URL.", Required = true)]
+            public string WebUrl { get; set; }
 
             [Option('m', "match-type", HelpText = "Match type filter. " +
                "See more https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md#url-match-scope", Default = MatchTypeFilter.domain, Required = false)]
@@ -38,19 +38,22 @@ namespace WaybackCDXServerScrapper
 
             [Option('t', "to", HelpText = "The \"To\" range is inclusive and is specified in the same 1 to 14 digit format used for wayback captures: yyyyMMddhhmmss", Required = false)]
             public string To { get; set; }
+
+            [Option('d', "delay", HelpText = "Delay in seconds after each page fetch.", Default = 2)]
+            public int DelayInSeconds { get; set; }
         }
 
 
         static async Task Main(string[] args)
         {
 #if DEBUG
-            args = new string[] { "-u", @"amazon.com/Amazon-Prime-Air/b?ie=UTF8&node=8037720011", "-m", "host", "-f", "2013", "-t", "2020" };
+            args = new string[] { "-u", @"katespade.com", "-f", "20180922", "-t", "20181023"/*, "-d", "10", "-c", "10" */};
 #endif
 
             var parsedResult = await Parser.Default.ParseArguments<Options>(args)
                       .WithParsedAsync(async o =>
                       {
-                          await StartScraping(o.DomainName, o.MatchType, o.From, o.To, o.ConcurrentDownloadsCount);
+                          await ParseOptionsAndStartScraping(o);
                       });
 
             parsedResult.WithNotParsed(ParsingFailed);
@@ -70,16 +73,16 @@ namespace WaybackCDXServerScrapper
             //Console.WriteLine("************************************");
         }
 
-        public static async Task StartScraping(string domainName, MatchTypeFilter matchType, string from, string to, int concurrentTasksCount)
+        static async Task ParseOptionsAndStartScraping(Options options)
         {
-            CdxScrapper scrapper = new CdxScrapper(matchType, from, to)
+            CdxScrapper scrapper = new CdxScrapper(options.MatchType, options.From, options.To, options.DelayInSeconds)
             {
-                ConcurrentTasksCount = concurrentTasksCount
+                ConcurrentTasksCount = options.ConcurrentDownloadsCount
             };
 
             try
             {
-                scrapper.OutputFilePath = GetOutputFileName(domainName);
+                scrapper.OutputFilePath = GetOutputFileName(options.WebUrl);
             }
             catch (Exception ex)
             {
@@ -87,10 +90,10 @@ namespace WaybackCDXServerScrapper
                 return;
             }
 
-            var numberOfPages = await scrapper.GetTotalPagesCount(domainName);
+            var numberOfPages = await scrapper.GetTotalPagesCount(options.WebUrl);
             if (numberOfPages > 0)
             {
-                await scrapper.ScrapeAllPages(numberOfPages, domainName);
+                await scrapper.ScrapeAllPages(numberOfPages, options.WebUrl);
             }
         }
 
