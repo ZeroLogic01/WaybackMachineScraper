@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <AssemblyName>CDX</AssemblyName>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Company>ZeroLogic</Company>
     <Product>CDX Scrapper</Product>
     <Authors>ZeroLogic</Authors>

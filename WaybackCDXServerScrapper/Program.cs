@@ -46,9 +46,9 @@ namespace WaybackCDXServerScrapper
 
         static async Task Main(string[] args)
         {
-#if DEBUG
-            args = new string[] { "-u", @"katespade.com", "-f", "20180922", "-t", "20181023"/*, "-d", "10", "-c", "10" */};
-#endif
+//#if DEBUG
+//            args = new string[] { "-u", @"katespade.com", "-f", "20180922", "-t", "20181023"/*, "-d", "10", "-c", "10" */};
+//#endif
 
             var parsedResult = await Parser.Default.ParseArguments<Options>(args)
                       .WithParsedAsync(async o =>

@@ -54,16 +54,18 @@ namespace WaybackCDXServerScrapper
         public MatchTypeFilter MatchType { get; }
         public string From { get; }
         public string To { get; }
+        public int DelayInSeconds { get; }
 
         #endregion
 
         #region Constructor
 
-        public CdxScrapper(MatchTypeFilter matchType, string from, string to)
+        public CdxScrapper(MatchTypeFilter matchType, string from, string to, int delayInSeconds)
         {
             MatchType = matchType;
             From = from;
             To = to;
+            DelayInSeconds = delayInSeconds;
         }
 
         #endregion
@@ -80,6 +82,8 @@ namespace WaybackCDXServerScrapper
                 requestUrl = $"{requestUrl}&from={From}&to={To}";
                 Console.WriteLine($"From {From} to {To}");
             }
+            Console.WriteLine($"Delay after each page fetch: {DelayInSeconds} seconds");
+
             Console.WriteLine($"Concurrent tasks count: {ConcurrentTasksCount}");
             Console.WriteLine($"Output file: {Path.GetFileName(OutputFilePath)}");
 
@@ -130,6 +134,7 @@ namespace WaybackCDXServerScrapper
                     if (ConcurrentTasks.Any())
                     {
                         var completedTask = await Task.WhenAny(ConcurrentTasks);
+                        //await Task.Delay(TimeSpan.FromSeconds(DelayInSeconds));
                         ConcurrentTasks.Remove(completedTask);
                     }
 
@@ -162,17 +167,18 @@ namespace WaybackCDXServerScrapper
                     FileWriterExtension.WriteToFile(data.URLS, OutputFilePath);
 
                     Console.WriteLine($"Saving page {pageNumber + 1} URLs completed");
+                    await Task.Delay(TimeSpan.FromSeconds(DelayInSeconds));
                 }
                 else
                 {
-                    Console.WriteLine($"No URLs found for this domain on page {pageNumber + 1}");
+                    Console.WriteLine($"No URLs found on page {pageNumber + 1}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"An error occurred while fetching/saving page {pageNumber + 1} URLS.\r\n{ExceptionHelper.ExtractExceptionMessage(ex)}");
+                Console.WriteLine($"An error occurred while fetching/saving page {pageNumber + 1} URLS.\r\n{ex.Message}");
                 FailedFetchPages.Enqueue(pageNumber);
-                await Task.Delay(TimeSpan.FromSeconds(10));
+                await Task.Delay(TimeSpan.FromSeconds(20));
             }
         }
 
@@ -237,7 +243,7 @@ namespace WaybackCDXServerScrapper
                 {
                     URL = $"{ArchiveAccessUrl}{item[1]}/{item[0]}",
                     Mimetype = item[2].ToString(),
-                    Date = DateTime.ParseExact(item[1].ToString(), "yyyyMMddHHmmss", null)
+                    Date = DateTime.ParseExact(item[1].ToString(), "yyyyMMddHHmmss", null).ToFormat12hString()
                 };
                 cdxData.URLS.Add(result);
             }
